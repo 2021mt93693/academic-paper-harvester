@@ -1,0 +1,126 @@
+# Configuration Template for Academic Paper Harvester
+# Copy this file to config.yaml and adjust values as needed
+
+database:
+  host: localhost
+  port: 5432
+  dbname: academic_papers
+  user: postgres
+  password: CHANGE_THIS_PASSWORD  # ⚠️ Required: Set your PostgreSQL password
+
+sources:
+  # ArXiv - Preprint repository for physics, mathematics, computer science, etc.
+  arxiv:
+    enabled: true
+    base_url: http://export.arxiv.org/api/query
+    # Retry settings for transient network errors (SSL, connection, timeout).
+    # Do NOT retry on HTTP errors like 429 (rate limit) or 4xx (client errors).
+    max_retries: 4
+    retry_backoff_seconds: 2  # exponential: 2s, 4s, 8s for attempts 1, 2, 3
+    request_delay_seconds: 3  # seconds to sleep between successful paginated requests
+    filters:
+      start_year: 2023        # Papers from this year onwards
+      end_year: 2024          # Papers up to this year
+      categories:             # ArXiv categories to harvest
+        - cs.AI               # Artificial Intelligence
+        - cs.LG               # Machine Learning
+        - cs.CL               # Computation and Language
+        # - cs.CV             # Computer Vision (uncomment to enable)
+        # - cs.NE             # Neural and Evolutionary Computing
+        # - cs.RO             # Robotics
+        #- cs.CR              # Cryptography and Security
+        #- cs.DB              # Databases
+        #- cs.DS              # Data Structures and Algorithms
+        # Multiple Disciplines
+        #- stat.ML            # Statistics - Machine Learning
+        #- math.OC            # Mathematics - Optimization and Control
+      # batch_size: papers fetched per API request. ArXiv enforces a hard
+      # maximum of 2000 per request — do not set higher.
+      batch_size: 2000
+      # max_results: total papers to harvest across all batches.
+      # Set to 0 (or remove) to fetch all available papers with no cap.
+      max_results: 100
+    
+  # Semantic Scholar - Cross-disciplinary academic search engine
+  semantic_scholar:
+    enabled: true
+    base_url: https://api.semanticscholar.org/graph/v1
+    api_key: null            # Optional: Add your API key for higher rate limits
+                             # Get key from: https://www.semanticscholar.org/product/api
+    # Rate-limit settings. Without an API key the paper/search endpoint
+    # enforces ~1 req/s and returns 429 quickly under load.
+    # Increase retry_backoff_seconds to give the API time to recover.
+    max_retries: 4
+    retry_backoff_seconds: 30   # seconds to wait per retry attempt (multiplied by attempt number)
+    request_delay_seconds: 2    # seconds to sleep between successful paginated requests
+    filters:
+      start_year: 2023
+      end_year: 2024
+      categories:             # Fields to search
+        - Computer Science
+        - Artificial Intelligence
+        # - Machine Learning
+        # - Natural Language Processing
+        # - Data Science
+      # batch_size: papers fetched per API request.
+      # Note: Semantic Scholar enforces hard limits (100 with API key, 25 without).
+      # If batch_size exceeds the API limit, it will be automatically clamped.
+      batch_size: 100
+      # max_results: total papers to harvest across all batches.
+      # Set to 0 to skip this source entirely (S2 has strict rate limits).
+      max_results: 100
+    
+  # S2ORC - Semantic Scholar Open Research Corpus
+  # Lo et al. (2020) "S2ORC: The Semantic Scholar Open Research Corpus"
+  s2orc:
+    enabled: false            # Disabled by default
+    base_url: https://api.semanticscholar.org/datasets/v1/release
+    api_key: null             # Required for bulk mode; optional for proxy
+    max_retries: 4
+    retry_backoff_seconds: 30   # seconds to wait per retry attempt (multiplied by attempt number)
+    request_delay_seconds: 2    # Delay between proxy page requests (ignored in bulk mode)
+    # mode controls how S2ORC papers are fetched:
+    #   proxy — queries the Semantic Scholar Graph API (/paper/search); fast setup,
+    #           limited to ~10k results per query window, same rate-limit rules as
+    #           the semantic_scholar source.
+    #   bulk  — downloads gzipped JSONL shard files from the Datasets API; gives
+    #           access to the full corpus but downloads ~100 MB per shard.
+    #           max_results stops streaming mid-shard, so you control total volume.
+    mode: proxy
+    bulk_release: latest      # Bulk mode only: 'latest' or a specific release tag e.g. '2024-01-01'
+    filters:
+      start_year: 2023
+      end_year: 2024
+      categories:             # Fields to search
+        - Computer Science
+        - Artificial Intelligence
+      # batch_size: papers per proxy API request (max 100; ignored in bulk mode).
+      batch_size: 100
+      # max_results: total papers to collect across all batches/shards.
+      # In bulk mode, fetching stops as soon as this count is reached — you never
+      # need to download the entire corpus. Set to 0 for no cap.
+      max_results: 100
+
+storage:
+  root_directory: ../data/harvested    # Root directory for storing papers
+  subdirectories:
+    arxiv: arxiv_papers
+    semantic_scholar: semantic_scholar_papers
+    s2orc: s2orc_papers
+
+scheduler:
+  # Cron expression format: minute hour day month day_of_week
+  # Examples:
+  #   "0 2 * * *"    - Daily at 2 AM
+  #   "0 */6 * * *"  - Every 6 hours
+  #   "0 0 * * 0"    - Weekly on Sunday at midnight
+  #   "0 0 1 * *"    - Monthly on the 1st at midnight
+  #   "*/30 * * * *" - Every 30 minutes
+  # Default: Run daily at 2 AM
+  cron_expression: "0 2 * * *"
+  enabled: true               # Set to false to disable harvesting
+
+logging:
+  level: INFO                 # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: harvester.log
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
