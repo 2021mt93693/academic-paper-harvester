@@ -205,3 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Run time files
+source/data/
+config.yaml
+doc
+.github/
+AGENTS.md
